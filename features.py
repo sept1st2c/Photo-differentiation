@@ -15,7 +15,7 @@ PATCH_SIZE = 128
 MAX_PATCHES = 16
 BLANK_STD_THRESHOLD = 5.0  # skip near-uniform patches (walls, sky, blown highlights)
 
-FEATURE_NAMES = [
+ALL_FEATURE_NAMES = [
     "fft_high_freq_ratio", "fft_peak_to_mean", "fft_radial_peakiness",
     "lbp_entropy", "lbp_uniform_fraction", "lbp_hist_std", "lbp_std",
     "noise_std", "noise_kurtosis", "noise_energy",
@@ -24,6 +24,17 @@ FEATURE_NAMES = [
     "jpeg_blockiness",
     "glare_highlight_frac", "glare_shadow_frac",
 ]
+
+# Kept features = positive permutation importance in every held-out group-CV fold (see
+# docs/EXPLAINED.md). The other 11 were near-zero or flipped sign between folds -- noise
+# the classifier could fit per-device rather than genuine recapture signal.
+FEATURE_NAMES = [
+    "fft_peak_to_mean", "fft_radial_peakiness",
+    "lbp_uniform_fraction", "lbp_std",
+    "noise_kurtosis",
+    "color_val_std",
+]
+SELECTED_INDICES = [ALL_FEATURE_NAMES.index(name) for name in FEATURE_NAMES]
 
 
 def extract_patches(image, patch_size=PATCH_SIZE, max_patches=MAX_PATCHES):
@@ -157,7 +168,7 @@ def glare_features(bgr):
 
 
 def extract_patch_features(patch):
-    """Concatenate all feature groups for one BGR patch into a single vector."""
+    """Concatenate all feature groups for one BGR patch, then keep only the subset in FEATURE_NAMES."""
     gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
     feats = np.concatenate([
         fft_features(gray),
@@ -168,7 +179,8 @@ def extract_patch_features(patch):
         jpeg_block_features(gray),
         glare_features(patch),
     ])
-    return np.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=0.0)
+    feats = np.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=0.0)
+    return feats[SELECTED_INDICES]
 
 
 def extract_image_features(image_path, patch_size=PATCH_SIZE, max_patches=MAX_PATCHES):

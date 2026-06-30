@@ -16,6 +16,7 @@ import joblib
 import numpy as np
 from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.inspection import permutation_importance
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -194,8 +195,11 @@ def run_group_cv(images, weights):
 
     results = {name: [] for name in make_classifiers()}
     for f in folds:
+        print(f"\n  -- fold {f['fold']} (real={f['real_groups']}, screen={f['screen_groups']}) --")
         for name, pipeline in make_classifiers().items():
-            results[name].append(evaluate(pipeline, f["test_imgs"], f["train_imgs"], weights))
+            r = evaluate(pipeline, f["test_imgs"], f["train_imgs"], weights)
+            results[name].append(r)
+            print_eval(name, r)
 
     print("\nper-classifier mean +/- std across folds:")
     summary = {}
@@ -237,6 +241,28 @@ def print_group_weights(images, weights):
     print(f"  class totals: real={totals[0]:.3f}  screen={totals[1]:.3f}")
 
 
+def print_feature_importance(images, weights, classifier_name):
+    """Permutation importance averaged across every held-out fold -- a feature that only
+    looks useful in one fold is fold-specific noise, not a real signal."""
+    folds = build_cv_folds(images)
+    per_fold = []
+    for f in folds:
+        pipeline = make_classifiers()[classifier_name]
+        X_train, y_train, w_train = patches_to_xy(f["train_imgs"], weights)
+        pipeline.fit(X_train, y_train, clf__sample_weight=w_train)
+        X_test, y_test, _ = patches_to_xy(f["test_imgs"], weights)
+        result = permutation_importance(pipeline, X_test, y_test, n_repeats=10, random_state=RANDOM_STATE, n_jobs=-1)
+        per_fold.append(result.importances_mean)
+    per_fold = np.array(per_fold)  # (n_folds, n_features)
+
+    mean_imp, std_imp = per_fold.mean(axis=0), per_fold.std(axis=0)
+    print(f"\n=== Feature importance ({classifier_name}, permutation averaged across {len(folds)} held-out folds) ===")
+    for i in np.argsort(mean_imp)[::-1]:
+        per_fold_str = ", ".join(f"{v:+.3f}" for v in per_fold[:, i])
+        print(f"  {FEATURE_NAMES[i]:24s} mean={mean_imp[i]:+.4f}  std={std_imp[i]:.4f}  per_fold=[{per_fold_str}]")
+    return mean_imp
+
+
 def train_final_model(images, weights, winner_name):
     print(f"\n=== Training final model ({winner_name}) on 100% of data ===")
     pipeline = make_classifiers()[winner_name]
@@ -266,6 +292,7 @@ def main():
 
     winner = max(cv_summary, key=cv_summary.get)
     print(f"\nbest classifier by group-CV accuracy: {winner} ({cv_summary[winner]:.3f})")
+    print_feature_importance(images, weights, winner)
     train_final_model(images, weights, winner)
 
 

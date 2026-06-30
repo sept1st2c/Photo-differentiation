@@ -1,22 +1,38 @@
-"""Fill this in. That's the whole interface.
+"""Screen-recapture detector.
 
 Usage:
     python predict.py some_image.jpg
 Prints ONE number from 0 to 1:
     0 = real photo,  1 = photo of a screen (recapture / fraud)
-A hard 0 or 1 is fine if your method gives a yes/no answer.
+
+Loads the classifier trained by train.py (models/model.joblib), extracts
+the same patch features used at training time, and averages per-patch
+"screen" probabilities into one image-level score.
 """
 
 import sys
-from PIL import Image
+from pathlib import Path
+
+import joblib
+
+from features import extract_image_features
+
+MODEL_PATH = Path(__file__).parent / "models" / "model.joblib"
+_model = None
+
+
+def _load_model():
+    global _model
+    if _model is None:
+        _model = joblib.load(MODEL_PATH)
+    return _model
 
 
 def predict(image_path: str) -> float:
-    img = Image.open(image_path).convert("RGB")
-    # TODO: run your detector and return how likely the image is a photo-of-a-screen.
-    # It can be a trained model, a classic CV / image-processing method, frequency
-    # analysis, or any algorithm you like -- your choice.
-    raise NotImplementedError("return a fraud score in [0, 1]")
+    pipeline = _load_model()["pipeline"]
+    feats = extract_image_features(image_path)
+    proba = pipeline.predict_proba(feats)[:, 1]
+    return float(proba.mean())
 
 
 if __name__ == "__main__":
