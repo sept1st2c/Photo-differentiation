@@ -3,3 +3,4 @@ scipy
 opencv-python
 scikit-learn
 scikit-image
+joblib
