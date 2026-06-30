@@ -38,7 +38,11 @@ SELECTED_INDICES = [ALL_FEATURE_NAMES.index(name) for name in FEATURE_NAMES]
 
 
 def extract_patches(image, patch_size=PATCH_SIZE, max_patches=MAX_PATCHES):
-    """Grid-split a BGR image into patches, skipping near-blank ones."""
+    """Grid-split a BGR image into patches, skipping near-blank ones.
+
+    Returns a list of (patch_bgr, patch_gray) tuples -- grayscale is computed once
+    here (needed for the blank check anyway) and reused by the feature functions.
+    """
     h, w = image.shape[:2]
     if h < patch_size or w < patch_size:
         scale = patch_size / min(h, w)
@@ -57,12 +61,13 @@ def extract_patches(image, patch_size=PATCH_SIZE, max_patches=MAX_PATCHES):
             gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
             if gray.std() < BLANK_STD_THRESHOLD:
                 continue
-            patches.append(patch)
+            patches.append((patch, gray))
 
     if not patches:
         # whole image was flat (e.g. a test swatch) -- fall back to center crop
         cy, cx = (h - patch_size) // 2, (w - patch_size) // 2
-        patches = [image[cy:cy + patch_size, cx:cx + patch_size]]
+        patch = image[cy:cy + patch_size, cx:cx + patch_size]
+        patches = [(patch, cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY))]
 
     if len(patches) > max_patches:
         idx = np.linspace(0, len(patches) - 1, max_patches).astype(int)
@@ -167,17 +172,21 @@ def glare_features(bgr):
     return np.array([highlight_frac, shadow_frac])
 
 
-def extract_patch_features(patch):
-    """Concatenate all feature groups for one BGR patch, then keep only the subset in FEATURE_NAMES."""
-    gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
+def extract_patch_features(patch, gray=None):
+    """Concatenate the feature groups that feed FEATURE_NAMES, then select that subset.
+
+    sharpness_features / jpeg_block_features / glare_features are kept above as
+    documented, standalone functions (see docs/EXPLAINED.md) but are skipped here --
+    cross-fold permutation importance showed none of their outputs survive pruning,
+    so computing them on every patch would just be wasted latency.
+    """
+    if gray is None:
+        gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
     feats = np.concatenate([
         fft_features(gray),
         lbp_features(gray),
         noise_residual_features(gray),
         color_features(patch),
-        sharpness_features(gray),
-        jpeg_block_features(gray),
-        glare_features(patch),
     ])
     feats = np.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=0.0)
     return feats[SELECTED_INDICES]
@@ -189,4 +198,4 @@ def extract_image_features(image_path, patch_size=PATCH_SIZE, max_patches=MAX_PA
     if image is None:
         raise ValueError(f"could not read image: {image_path}")
     patches = extract_patches(image, patch_size=patch_size, max_patches=max_patches)
-    return np.stack([extract_patch_features(p) for p in patches])
+    return np.stack([extract_patch_features(patch, gray) for patch, gray in patches])
