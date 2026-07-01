@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BACKEND_URL } from "@/lib/data";
 import ScanCard from "@/components/ScanCard";
@@ -34,7 +34,24 @@ export default function BatchTest() {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [capped, setCapped] = useState<number | null>(null);
   const [current, setCurrent] = useState<{ url: string; name: string } | null>(null);
+  const [backendStatus, setBackendStatus] = useState<"checking" | "up" | "down">("checking");
   const cancelRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    async function check() {
+      try {
+        const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(6000) });
+        if (!active) return;
+        setBackendStatus(res.ok ? "up" : "down");
+      } catch {
+        if (active) setBackendStatus("down");
+      }
+    }
+    check();
+    const id = setInterval(check, 15000);
+    return () => { active = false; clearInterval(id); };
+  }, []);
 
   const runBatch = useCallback(async (files: FileList | File[]) => {
     let imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -67,6 +84,7 @@ export default function BatchTest() {
         if (!res.ok) throw new Error(data.error ?? "backend error");
         setResults((r) => [...r, { name: file.name, score: data.score, error: null, ms }]);
       } catch (e) {
+        if (e instanceof TypeError) setBackendStatus("down");
         setResults((r) => [
           ...r,
           { name: file.name, score: null, error: e instanceof Error ? e.message : "failed", ms: 0 },
@@ -87,6 +105,18 @@ export default function BatchTest() {
 
   return (
     <div>
+      {backendStatus === "down" && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-400/[0.08] px-4 py-3 text-sm text-amber-300">
+          <span className="mt-0.5 shrink-0 text-base">⚠</span>
+          <div>
+            <p className="font-semibold">Backend is starting up</p>
+            <p className="mt-0.5 text-xs text-amber-300/70">
+              Render&apos;s free tier spins down after inactivity — it&apos;ll be ready in about
+              30 seconds. Checking automatically every 15 s&hellip;
+            </p>
+          </div>
+        </div>
+      )}
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
