@@ -1,15 +1,19 @@
 # Spot the Fake Photo
 
+### Live demo: **[photo-differentiation.vercel.app](https://photo-differentiation.vercel.app/)**
+
+Try it now — no setup needed. Upload your own photos or use the live camera, both scored
+by the real, deployed pipeline (backend on Render, frontend on Vercel).
+
+---
+
 Given one photo, decide whether it's a **real photo** or a **photo of a screen**
 (someone recapturing a phone/laptop display instead of the real thing). Take-home
 for SalesCode AI — full brief in `ASSIGNMENT.pdf`.
 
 **Approach:** handcrafted physical features (moiré, screen subpixel texture, noise
 residual, color) feeding a small scikit-learn classifier — no deep learning, no GPU,
-~178ms/image, $0 marginal cost on-device.
-
-**Live demo:** [photo-differentiation.vercel.app](https://photo-differentiation.vercel.app/)
-— camera + batch-upload testing against the real pipeline.
+~170ms/image, $0 marginal cost on-device.
 
 ## Quick start
 
