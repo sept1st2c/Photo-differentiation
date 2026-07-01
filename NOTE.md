@@ -40,9 +40,11 @@ screen subpixel texture), and resizing a whole image would wash it out.
 
 Narrowed from 19 candidates by keeping only features with **consistent-sign
 importance across every held-out validation fold** — inconsistent ones
-were device-specific noise, not signal. Patch scores combine into one
-image score by averaging, so no single odd patch flips the verdict.
-Full reasoning and rejected candidates: `docs/EXPLAINED.md`.
+were device-specific noise, not signal. Patch scores combine into one image
+score via a moiré-magnitude-weighted average (patches with a stronger
+periodic signal get more say), tested against the full validation set
+before being adopted over a flat mean. Full reasoning and rejected
+candidates: `docs/EXPLAINED.md`.
 
 ## How it's validated
 

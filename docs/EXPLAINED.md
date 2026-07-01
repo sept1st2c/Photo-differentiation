@@ -154,11 +154,17 @@ glare or dark-room screens), too sparse a signal for ~200 images.
 ## From patch scores to one image score
 
 Each patch gets its own probability from the classifier; the image's final
-score is the **mean of its patch scores**. Averaging (rather than, say, max)
-is deliberate: a single patch with an artifact shouldn't flip a real photo
-to "recapture," and a single clean patch in a recapture shouldn't flip it
-to "real." We want the verdict to reflect the *overall* weight of evidence
-across the image.
+score is a **moiré-magnitude-weighted average** of its patch scores
+(`aggregate_patch_scores` in `features.py`) -- each patch's contribution is
+weighted by its own `fft_radial_peakiness`, so patches with a stronger
+periodic signal get more say than patches that are comparatively flat.
+This started as a flat mean; the weighted version was tested against the
+full group-CV set and adopted after it improved accuracy, precision, *and*
+the random-split number with zero recall cost (0.808 -> 0.815 group-CV,
+0.923 -> 0.942 random-split -- see "what worked" below). Either way
+(flat mean or weighted), a single odd patch can't flip the verdict on its
+own -- the score reflects the overall weight of evidence across the image,
+not any one patch.
 
 ## How overfitting is prevented (and what it would look like if it weren't)
 
@@ -205,7 +211,8 @@ Design choices that guard against it:
 | iteration | group-CV acc (honest) | random-split acc (optimistic) | gap |
 |---|---|---|---|
 | all 19 features | 0.761 ± 0.066 | 0.904 | 0.143 |
-| pruned to 6 features | **0.808 ± 0.049** | 0.923 | 0.115 |
+| pruned to 6 features | 0.808 ± 0.049 | 0.923 | 0.115 |
+| + moiré-weighted aggregation | **0.815 ± 0.050** | **0.942** | 0.127 |
 
 Per-fold breakdown showed the failure wasn't uniform: the model did fine
 catching screens, but had poor *precision* on two folds (0.36-0.58) where
@@ -213,6 +220,46 @@ an entire real-photo device (iPhone or OnePlus) was held out — i.e. real
 photos from an unseen device were being misflagged as screens. This points
 at the remaining gap being about *real-photo diversity per device*, not a
 missing feature type.
+
+### What worked: moiré-weighted aggregation
+
+Two fresh, never-trained-on screen photos (loosely-framed laptop-screen
+recaptures, shot after training was finalized) were misclassified as real.
+Per-patch inspection showed a more interesting failure than "background
+dilutes the average": the patches that scored *high* (0.86, 0.69) turned
+out to be the wall and the laptop's own keyboard -- not the screen -- while
+the patch showing actual displayed photo content, with visible moiré
+banding clearly present, scored 0.007 (confidently "real"). That patch's
+`color_val_std` was ~0.6, near zero -- a very flat gradient region. The
+likely explanation: smooth, low-variance gradient patches (skies,
+soft-focus backgrounds) in the training set are overwhelmingly from real
+photos, so the classifier appears to have partly learned "flat +
+high-LBP-uniformity = real" as a shortcut that can override the FFT signal
+when a recapture happens to display exactly that kind of content.
+
+The fix that came out of this diagnosis: weight each patch's contribution
+to the image score by its own `fft_radial_peakiness` (raw feature
+magnitude) instead of a flat mean, so patches with strong periodic signal
+get more say. This is a different lever than the percentile/max experiment
+below -- it weights by an independent physical measurement, not by the
+classifier's own (sometimes wrong) confidence. Tested against the full
+group-CV set before being adopted:
+
+| aggregation | group-CV accuracy | precision | recall | random-split acc |
+|---|---|---|---|---|
+| flat mean | 0.808 | 0.721 | 0.776 | 0.923 |
+| moiré-weighted (shipped) | **0.815** | **0.735** | 0.776 (unchanged) | **0.942** |
+
+Every metric held or improved, nothing regressed -- adopted. Worth being
+honest about its limits, though: re-checking the same two photos afterward,
+one score didn't move at all and the other moved slightly in the *wrong*
+direction (0.334 -> 0.317), because that specific low-confidence patch
+happens to also have high raw FFT peakiness, so upweighting it pulled the
+average further from correct. This aggregation change is a genuine average-case
+win, not a fix for this specific failure mode -- the actual fix for
+"smooth gradient content confuses the classifier" is training examples of
+screen recaptures that include smooth gradient/sky content, which the
+model doesn't currently have.
 
 ### What was tried and didn't work (kept here so it isn't re-tried blindly)
 
@@ -239,18 +286,20 @@ is not worth trading accuracy to shave further, especially since resizing
 to speed up decode has the exact same downside as the resolution-fix
 above.
 
-**Percentile/max patch-score aggregation instead of mean.** Fresh
-real-world test photos (loosely-framed laptop-screen recaptures with a lot
-of bezel/desk/wall in shot) surfaced two misses where only 2-5 of 16
-patches scored above 0.5 — the patches landing on the actual displayed
-photo did catch the signal, but got diluted by patches landing on the
-(genuinely real) bezel/background. Switching the image-level aggregation
-from mean to a high percentile or max was tested against the full group-CV
-set, not just those two photos, to check whether it would generalize:
+**Percentile/max patch-score aggregation instead of mean.** (Predates the
+moiré-weighted aggregation above -- at this point the baseline was still a
+flat mean.) Fresh real-world test photos (loosely-framed laptop-screen
+recaptures with a lot of bezel/desk/wall in shot) surfaced two misses where
+only 2-5 of 16 patches scored above 0.5 — the patches landing on the actual
+displayed photo did catch the signal, but got diluted by patches landing on
+the (genuinely real) bezel/background. Switching the image-level
+aggregation from mean to a high percentile or max was tested against the
+full group-CV set, not just those two photos, to check whether it would
+generalize:
 
 | aggregation | group-CV accuracy | precision | recall |
 |---|---|---|---|
-| mean (shipped) | **0.808** | 0.721 | 0.776 |
+| mean (baseline at the time) | **0.808** | 0.721 | 0.776 |
 | 60th percentile | 0.789 | 0.682 | 0.824 |
 | 75th percentile | 0.707 | 0.584 | 0.863 |
 | 90th percentile | 0.594 | 0.505 | 0.904 |
@@ -258,8 +307,11 @@ set, not just those two photos, to check whether it would generalize:
 
 Every alternative trades precision for recall and makes overall accuracy
 *worse* — it would have fixed those two photos at the cost of flagging
-more real photos as screens elsewhere. Rejected; mean stays. The
-underlying limitation (loose framing dilutes the patch average) is real
+more real photos as screens elsewhere. Rejected in favor of a flat mean at
+the time; later superseded by moiré-weighted aggregation above, which is a
+different mechanism (weights by an independent physical measurement, not
+by the classifier's own confidence) and doesn't have this failure mode.
+The underlying limitation (loose framing dilutes the patch average) is real
 but is judged lower-risk than it first appears: someone *trying* to pass a
 screen photo off as real has an incentive to crop tight and hide the
 bezel (the bezel is the obvious visual tell), so this failure mode is more

@@ -22,7 +22,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from features import FEATURE_NAMES, extract_image_features
+from features import FEATURE_NAMES, aggregate_patch_scores, extract_image_features
 
 DATA_DIR = Path(__file__).parent / "data"
 MODELS_DIR = Path(__file__).parent / "models"
@@ -153,8 +153,11 @@ def patches_to_xy(imgs, weights):
 
 
 def predict_image_scores(pipeline, imgs):
-    """Per-image score = mean of its patch probabilities of being 'screen'."""
-    return np.array([pipeline.predict_proba(img["feats"])[:, 1].mean() for img in imgs])
+    """Per-image score, aggregated the same way predict.py does."""
+    return np.array([
+        aggregate_patch_scores(pipeline.predict_proba(img["feats"])[:, 1], img["feats"])
+        for img in imgs
+    ])
 
 
 def evaluate(pipeline, test_imgs, train_imgs, weights):

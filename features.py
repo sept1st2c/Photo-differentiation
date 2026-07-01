@@ -199,3 +199,20 @@ def extract_image_features(image_path, patch_size=PATCH_SIZE, max_patches=MAX_PA
         raise ValueError(f"could not read image: {image_path}")
     patches = extract_patches(image, patch_size=patch_size, max_patches=max_patches)
     return np.stack([extract_patch_features(patch, gray) for patch, gray in patches])
+
+
+_FFT_PEAK_INDEX = FEATURE_NAMES.index("fft_radial_peakiness")
+
+
+def aggregate_patch_scores(patch_probs, patch_feats):
+    """Combine per-patch P(screen) into one image score.
+
+    Weighted by each patch's own moiré magnitude (fft_radial_peakiness) rather than
+    a flat mean -- patches with stronger periodic signal get more say. Validated via
+    group k-fold CV: +0.7pp accuracy over a flat mean with no recall cost (see
+    docs/EXPLAINED.md). Not a fix for every patch-level miscall -- a patch can still
+    have high peakiness for reasons other than screen moiré (any real periodic
+    texture does this too) -- but it's a small, tested win on average.
+    """
+    weights = np.clip(patch_feats[:, _FFT_PEAK_INDEX], 1e-6, None)
+    return float(np.average(patch_probs, weights=weights))

@@ -35,16 +35,19 @@ export const featureImportance = [
 ];
 
 // The iterative improvement story: pruning 19 candidate features down to
-// the 6 with consistent-sign importance across every fold.
+// the 6 with consistent-sign importance across every fold, then switching
+// from a flat patch-score mean to a moiré-magnitude-weighted average.
 export const iterationHistory = [
   { stage: "19 features", groupCV: 76.1, randomSplit: 90.4 },
-  { stage: "6 features (shipped)", groupCV: 80.8, randomSplit: 92.3 },
+  { stage: "6 features, mean agg.", groupCV: 80.8, randomSplit: 92.3 },
+  { stage: "+ moiré-weighted agg. (shipped)", groupCV: 81.5, randomSplit: 94.2 },
 ];
 
 // Ideas that looked reasonable and were tested, then reverted because they
-// hurt the honest group-CV number.
+// hurt the honest group-CV number -- plus the one that worked.
 export const negativeExperiments = [
-  { name: "Shipped (mean aggregation, dense grid, full-res)", groupCV: 80.8, kept: true },
+  { name: "Shipped (moiré-weighted aggregation, dense grid, full-res)", groupCV: 81.5, kept: true },
+  { name: "Flat mean aggregation (previous baseline)", groupCV: 80.8, kept: false },
   { name: "Resolution normalization", groupCV: 63.1, kept: false },
   { name: "Sparse candidate patch grid", groupCV: 75.0, kept: false },
   { name: "90th-percentile score aggregation", groupCV: 59.4, kept: false },
@@ -69,9 +72,9 @@ export const costPerImage = [
 ];
 
 export const classifierComparison = [
-  { classifier: "Logistic Regression", groupCV: 77.4, randomSplit: 84.6 },
-  { classifier: "Random Forest", groupCV: 78.9, randomSplit: 92.3 },
-  { classifier: "HistGradientBoosting (shipped)", groupCV: 80.8, randomSplit: 92.3 },
+  { classifier: "Logistic Regression", groupCV: 76.6, randomSplit: 84.6 },
+  { classifier: "Random Forest", groupCV: 79.2, randomSplit: 94.2 },
+  { classifier: "HistGradientBoosting (shipped)", groupCV: 81.5, randomSplit: 94.2 },
 ];
 
 export const freshTestResults = {
