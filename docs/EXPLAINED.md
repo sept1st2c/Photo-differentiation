@@ -230,12 +230,17 @@ dilutes the average": the patches that scored *high* (0.86, 0.69) turned
 out to be the wall and the laptop's own keyboard -- not the screen -- while
 the patch showing actual displayed photo content, with visible moiré
 banding clearly present, scored 0.007 (confidently "real"). That patch's
-`color_val_std` was ~0.6, near zero -- a very flat gradient region. The
-likely explanation: smooth, low-variance gradient patches (skies,
-soft-focus backgrounds) in the training set are overwhelmingly from real
-photos, so the classifier appears to have partly learned "flat +
-high-LBP-uniformity = real" as a shortcut that can override the FFT signal
-when a recapture happens to display exactly that kind of content.
+`color_val_std` was ~0.64, near zero -- a very flat gradient region.
+Checked directly rather than guessed: across all 3328 training patches,
+the minimum `color_val_std` ever seen is 2.05 -- this patch's value is
+*below the entire training distribution* (0th percentile). It isn't that
+the classifier learned a bad shortcut from many examples of flat patches;
+it's that this exact patch is a genuine out-of-distribution input the
+tree-based model has never had grounds to learn from, and is effectively
+extrapolating blindly on. That's a sharper, more actionable version of
+"needs more data": specifically, screen recaptures with very
+smooth/gradient content (skies, soft-focus backgrounds), not general
+diversity.
 
 The fix that came out of this diagnosis: weight each patch's contribution
 to the image score by its own `fft_radial_peakiness` (raw feature
@@ -316,6 +321,33 @@ but is judged lower-risk than it first appears: someone *trying* to pass a
 screen photo off as real has an incentive to crop tight and hide the
 bezel (the bezel is the obvious visual tell), so this failure mode is more
 likely in casual test photos than in actual fraud attempts.
+
+**A whole-image bezel-darkness feature.** All 6 shipped features are
+patch-level, with zero awareness of where in the frame a patch sits. A
+plausible, distinct idea: a screen recapture often shows a dark, uniform
+bezel margin framing a brighter, busier center -- a purely geometric signal
+patch-level features can't see by construction. Implemented as two
+whole-image scalars (center-vs-border brightness gap, fraction of
+near-black border pixels), broadcast to every patch, and tested by adding
+them to the shipped 6:
+
+| feature set | group-CV accuracy | precision | recall |
+|---|---|---|---|
+| 6 features (shipped) | **0.815** | 0.735 | 0.776 |
+| 6 + border-darkness (8 features) | 0.723 | 0.700 | 0.743 |
+
+A 9-point accuracy drop, despite `border_darkness_gap` showing the
+*highest* permutation importance of all 8 features (0.111, higher than
+`fft_radial_peakiness`). That combination -- high average importance, but
+negative in one fold (`[+0.193, +0.189, -0.043, +0.103]`) -- is the same
+signature used to prune the original 19 candidate features down to 6: the
+model leans on it heavily, but that reliance doesn't generalize. Likely
+cause: border darkness is confounded with *setup*, not just device -- a
+dark, uniform border shows up both from a bezel and from a real photo shot
+against a dark background or with natural lens vignetting, and one
+particular recapture setup (a room, a desk, a camera angle) has a very
+consistent border signature the model can key on as "this specific setup"
+rather than "a bezel." Rejected.
 
 ## What I'd improve with more time
 
