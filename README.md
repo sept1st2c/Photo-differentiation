@@ -1,29 +1,75 @@
-# Take-home: Spot the Fake Photo
+# Spot the Fake Photo
 
-Full brief: **ASSIGNMENT.pdf**. In short:
+Given one photo, decide whether it's a **real photo** or a **photo of a screen**
+(someone recapturing a phone/laptop display instead of the real thing). Take-home
+for SalesCode AI — full brief in `ASSIGNMENT.pdf`.
 
-**Task** — Given one image, decide if it's a **real photo** or a **photo of a screen**
-(someone re-photographing a phone/laptop instead of the real thing).
+**Approach:** handcrafted physical features (moiré, screen subpixel texture, noise
+residual, color) feeding a small scikit-learn classifier — no deep learning, no GPU,
+~178ms/image, $0 marginal cost on-device.
 
-**The bar:** aim for **>95% accuracy** on our held-out photos.
+**Live demo:** [photo-differentiation.vercel.app](https://photo-differentiation.vercel.app/)
+— camera + batch-upload testing against the real pipeline.
 
-**Do this**
-1. Take ~50 real photos + ~50 photos-of-a-screen with your phone → folders `real/` and `screen/`.
-2. **Solve it any way you like — training a model is *not* required.** A trained model, classic
-   CV / image-processing tricks, frequency analysis, any algorithm — figuring out the approach
-   is the real test. Keep it small and fast.
-3. Make `python predict.py image.jpg` print a number 0–1 (1 = photo-of-a-screen). A starter
-   `predict.py` is here — just fill it in.
+## Quick start
 
-**Send us**
-- Your code (`predict.py` + training code)
-- A short note (½ page): approach, your accuracy, what you'd improve
-- **Two numbers (required):** latency (ms per image, on what device) and cost per image
-  (on-device ≈ free, or a rough $ per 1,000 / per million images for a cloud server)
-- Optional: a tiny camera demo (web page)
+```bash
+pip install -r requirements.txt
+python predict.py path/to/image.jpg   # prints a float in [0, 1]
+```
 
-**We judge** by running your `predict.py` on our own photos, reading your note, and looking at
-your latency + cost-per-image. Small + fast + cheap + honest beats big + complicated.
+## Read this first
 
-~1 day. Use whatever tools you like.
-# Photo-differentiation
+| Doc | What's in it |
+|---|---|
+| **[NOTE.md](NOTE.md)** | The submission note — approach, latency, cost, what I'd improve. Start here. |
+| **[docs/EXPLAINED.md](docs/EXPLAINED.md)** | Full methodology: what each feature measures and why, the validation approach, and every experiment that was tried and reverted (with numbers). |
+| **[demo/README.md](demo/README.md)** | Running the live camera + batch-test demo locally. |
+| **[demo/DEPLOY.md](demo/DEPLOY.md)** | How the demo is deployed (Vercel + Render), and how to redeploy it. |
+
+## Project structure
+
+```
+predict.py              -- the required interface: python predict.py image.jpg -> float
+features.py              -- patch extraction + the 6 shipped features
+train.py                  -- group k-fold CV, classifier comparison, trains + saves the final model
+sanity_check.py           -- score every image in a folder (for fresh/held-out photos)
+benchmark.py               -- latency benchmark (median/p95, reports device)
+inspect_features.py         -- per-patch feature dump + real-vs-screen effect sizes
+
+data/                      -- training photos: real/ and screen/, by device pairing
+models/model.joblib          -- the trained classifier predict.py loads
+
+docs/EXPLAINED.md            -- full methodology writeup
+NOTE.md                       -- the submission note
+
+demo/                          -- live camera + batch-test web demo (optional bonus)
+  backend/server.py               -- Flask wrapper around predict.py (no reimplementation)
+  frontend/                        -- Next.js page: camera demo, batch tester, data/decisions charts
+
+Dockerfile, render.yaml, .dockerignore   -- deploying demo/backend/
+```
+
+## Running the full pipeline
+
+```bash
+python inspect_features.py                # sanity-check feature separation before training
+python train.py                            # group k-fold CV + trains + saves models/model.joblib
+python sanity_check.py path/to/folder      # score a folder of fresh (non-training) images
+python benchmark.py                        # latency: median/p95 over 50 images
+```
+
+## Results, honestly
+
+Group k-fold cross-validation (each fold holds out an entire device pairing —
+e.g. every "laptop screen via OnePlus" photo — to measure generalization to
+unseen devices, not memorization of these specific phones). The full numbers,
+including two ideas that looked reasonable and were reverted after measuring
+worse, are in `docs/EXPLAINED.md`.
+
+## Dependencies
+
+`numpy`, `scipy`, `opencv-python`, `scikit-learn`, `scikit-image`, `joblib` —
+pinned in `requirements.txt` to the exact versions the shipped model was
+trained with (sklearn pickles are version-sensitive; this bit us once during
+deployment, see the git history for `requirements.txt`).
