@@ -33,6 +33,7 @@ export default function CameraDemo() {
   const [score, setScore] = useState<number | null>(null);
   const [history, setHistory] = useState<Reading[]>([]);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [resolution, setResolution] = useState<string | null>(null);
 
   const captureAndScore = useCallback(async () => {
     const video = videoRef.current;
@@ -64,18 +65,32 @@ export default function CameraDemo() {
         }
       },
       "image/jpeg",
-      0.85
+      0.95
     );
   }, []);
 
   const start = useCallback(async () => {
     setStatus("starting");
     try {
+      // No resolution constraint here previously meant the browser could
+      // default to something like 640x480. Moiré detection depends on fine,
+      // high-frequency pixel detail (proven earlier: downsizing destroys
+      // the signal) -- a low-res webcam feed of a screen was very likely
+      // scoring "real" simply because the moiré pattern was never captured
+      // in the first place, not because the model is wrong. Request the
+      // highest resolution the camera can offer.
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 4096 },
+          height: { ideal: 2160 },
+        },
       });
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
+      const track = stream.getVideoTracks()[0];
+      const settings = track?.getSettings();
+      if (settings?.width && settings?.height) setResolution(`${settings.width}×${settings.height}`);
       timerRef.current = setInterval(captureAndScore, CAPTURE_INTERVAL_MS);
       setStatus("live");
     } catch {
@@ -89,6 +104,7 @@ export default function CameraDemo() {
     streamRef.current = null;
     setStatus("idle");
     setScore(null);
+    setResolution(null);
   }, []);
 
   useEffect(() => () => stop(), [stop]);
@@ -151,9 +167,10 @@ export default function CameraDemo() {
             {score !== null ? score.toFixed(3) : "—"}
           </span>
           {v && <span className={`text-sm font-semibold tracking-wide ${v.color}`}>{v.label}</span>}
-          {latencyMs !== null && (
-            <span className="text-xs text-slate-500">{latencyMs}ms round-trip (incl. network)</span>
-          )}
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            {latencyMs !== null && <span>{latencyMs}ms round-trip</span>}
+            {resolution && <span>· camera {resolution}</span>}
+          </div>
         </div>
 
         <div className="h-28 rounded-2xl border border-white/10 bg-white/[0.03] p-3">

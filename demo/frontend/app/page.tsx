@@ -1,5 +1,3 @@
-import BatchTest from "@/components/BatchTest";
-import CameraDemo from "@/components/CameraDemo";
 import ClassifierComparisonChart from "@/components/ClassifierComparisonChart";
 import CostChart from "@/components/CostChart";
 import DatasetChart from "@/components/DatasetChart";
@@ -10,67 +8,40 @@ import LatencyChart from "@/components/LatencyChart";
 import PipelineDiagram from "@/components/PipelineDiagram";
 import Reveal from "@/components/Reveal";
 import Roadmap from "@/components/Roadmap";
-import ScrollCue from "@/components/ScrollCue";
 import { Card, SectionHeading, StatCard } from "@/components/Section";
 import TechStack from "@/components/TechStack";
+import TryItYourself from "@/components/TryItYourself";
 import { latencyStats } from "@/lib/data";
 
 export default function Home() {
   return (
     <main className="mx-auto w-full max-w-5xl px-6 sm:px-10">
-      {/* Hero */}
-      <div className="flex min-h-[88vh] flex-col justify-center gap-10 py-16">
-        <div>
-          <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">
-            Spot the Fake Photo — SalesCode AI take-home
-          </span>
-          <h1 className="mt-4 text-5xl font-bold leading-[1.05] text-white sm:text-6xl">
-            Is this photo real,
-            <br />
-            or a photo of a screen?
-          </h1>
-          <p className="mt-5 max-w-xl text-lg text-slate-400">
-            A fullstack build, not just a notebook: a physics-based ML pipeline, a live camera
-            demo, a batch tester, and a Dockerized backend — all deployed and running below.
-          </p>
-        </div>
-        <ScrollCue targetId="stats" />
+      {/* Hero — compact on purpose: the live demo below should be reachable
+          with barely any scroll, since not every reviewer scrolls far. */}
+      <div className="pt-14 pb-8 sm:pt-20">
+        <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">
+          Spot the Fake Photo — SalesCode AI take-home
+        </span>
+        <h1 className="mt-4 text-4xl font-bold leading-[1.05] text-white sm:text-5xl">
+          Is this photo real, or a photo of a screen?
+        </h1>
+        <p className="mt-4 max-w-2xl text-lg text-slate-400">
+          A fullstack build, not just a notebook — try it right now below, then scroll for the
+          data and decisions behind it.
+        </p>
       </div>
+
+      {/* 1. The live demo — camera + batch, together, first thing on the page */}
+      <section id="demo" className="mb-16">
+        <Reveal>
+          <TryItYourself />
+        </Reveal>
+      </section>
 
       {/* Effort stats — the "how much work went into this" bar */}
       <section id="stats" className="mb-24">
         <Reveal>
           <EffortStats />
-        </Reveal>
-      </section>
-
-      {/* 1. Live camera demo — the headline feature */}
-      <section id="demo" className="mb-24">
-        <Reveal>
-          <SectionHeading
-            eyebrow="Live"
-            title="Try it with your camera"
-            description="Runs the exact predict.py pipeline on live frames. Point it at something real, then at a laptop or phone screen showing a photo."
-          />
-        </Reveal>
-        <Reveal delay={0.1}>
-          <CameraDemo />
-        </Reveal>
-      </section>
-
-      {/* 1b. Batch test — for throwing a folder of held-out photos at it */}
-      <section id="batch" className="mb-24">
-        <Reveal>
-          <SectionHeading
-            eyebrow="Batch"
-            title="Test it against your own photos"
-            description="Drop in as many images as you like — each one is scored by the same pipeline, one request at a time, with a running scoreboard."
-          />
-        </Reveal>
-        <Reveal delay={0.1}>
-          <Card>
-            <BatchTest />
-          </Card>
         </Reveal>
       </section>
 

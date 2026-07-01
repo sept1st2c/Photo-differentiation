@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { BACKEND_URL } from "@/lib/data";
+import ScanCard from "@/components/ScanCard";
 
 // The Render free-tier backend runs one request at a time on shared CPU --
 // an unbounded batch (someone dropping in a folder of 500 photos) would
@@ -31,6 +33,7 @@ export default function BatchTest() {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [capped, setCapped] = useState<number | null>(null);
+  const [current, setCurrent] = useState<{ url: string; name: string } | null>(null);
   const cancelRef = useRef(false);
 
   const runBatch = useCallback(async (files: FileList | File[]) => {
@@ -52,6 +55,8 @@ export default function BatchTest() {
     for (let i = 0; i < imageFiles.length; i++) {
       if (cancelRef.current) break;
       const file = imageFiles[i];
+      const url = URL.createObjectURL(file);
+      setCurrent({ url, name: file.name });
       const form = new FormData();
       form.append("image", file);
       const t0 = performance.now();
@@ -67,8 +72,10 @@ export default function BatchTest() {
           { name: file.name, score: null, error: e instanceof Error ? e.message : "failed", ms: 0 },
         ]);
       }
+      URL.revokeObjectURL(url);
       setProgress({ done: i + 1, total: imageFiles.length });
     }
+    setCurrent(null);
     setRunning(false);
   }, []);
 
@@ -150,6 +157,12 @@ export default function BatchTest() {
         </div>
       )}
 
+      {current && (
+        <div className="mt-4">
+          <ScanCard file={current.url} name={current.name} />
+        </div>
+      )}
+
       {results.length > 0 && (
         <>
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -184,29 +197,38 @@ export default function BatchTest() {
                 </tr>
               </thead>
               <tbody>
-                {[...results]
-                  .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
-                  .map((r) => {
-                    const v = r.score !== null ? verdict(r.score) : null;
-                    return (
-                      <tr key={r.name} className="border-t border-white/5">
-                        <td className="max-w-[220px] truncate px-4 py-2 text-slate-300">{r.name}</td>
-                        <td className="px-4 py-2 tabular-nums text-slate-200">
-                          {r.score !== null ? r.score.toFixed(3) : "—"}
-                        </td>
-                        <td className="px-4 py-2">
-                          {v ? (
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${v.color} ${v.bg}`}>
-                              {v.label}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-rose-400">{r.error}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 tabular-nums text-slate-500">{r.ms || "—"}ms</td>
-                      </tr>
-                    );
-                  })}
+                <AnimatePresence initial={false}>
+                  {[...results]
+                    .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+                    .map((r) => {
+                      const v = r.score !== null ? verdict(r.score) : null;
+                      return (
+                        <motion.tr
+                          key={r.name}
+                          layout
+                          initial={{ opacity: 0, y: -8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="border-t border-white/5"
+                        >
+                          <td className="max-w-[220px] truncate px-4 py-2 text-slate-300">{r.name}</td>
+                          <td className="px-4 py-2 tabular-nums text-slate-200">
+                            {r.score !== null ? r.score.toFixed(3) : "—"}
+                          </td>
+                          <td className="px-4 py-2">
+                            {v ? (
+                              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${v.color} ${v.bg}`}>
+                                {v.label}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-rose-400">{r.error}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 tabular-nums text-slate-500">{r.ms || "—"}ms</td>
+                        </motion.tr>
+                      );
+                    })}
+                </AnimatePresence>
               </tbody>
             </table>
           </div>
