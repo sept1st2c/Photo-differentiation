@@ -4,3 +4,4 @@ opencv-python==4.13.0.92
 scikit-learn==1.8.0
 scikit-image==0.26.0
 joblib==1.5.3
+PyWavelets==1.8.0

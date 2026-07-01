@@ -1,4 +1,5 @@
 import ClassifierComparisonChart from "@/components/ClassifierComparisonChart";
+import IterationHistoryChart from "@/components/IterationHistoryChart";
 import CostChart from "@/components/CostChart";
 import DatasetChart from "@/components/DatasetChart";
 import EffortStats from "@/components/EffortStats";
@@ -106,7 +107,7 @@ export default function Home() {
         <Reveal delay={0.2}>
           <Card>
             <h3 className="mb-4 text-sm font-semibold text-slate-300">
-              Cross-fold feature importance (why these 6 features)
+              Cross-fold feature importance (why these 7 features)
             </h3>
             <FeatureImportanceChart />
           </Card>
@@ -129,6 +130,14 @@ export default function Home() {
           </Card>
         </Reveal>
         <Reveal delay={0.2}>
+          <Card>
+            <h3 className="mb-4 text-sm font-semibold text-slate-300">
+              Accuracy over iterations — group-CV
+            </h3>
+            <IterationHistoryChart />
+          </Card>
+        </Reveal>
+        <Reveal delay={0.3}>
           <Card>
             <h3 className="mb-4 text-sm font-semibold text-slate-300">Classifier comparison</h3>
             <ClassifierComparisonChart />

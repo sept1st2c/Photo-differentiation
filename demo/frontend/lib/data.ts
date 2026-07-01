@@ -26,15 +26,16 @@ export const totalScreen = datasetComposition
   .filter((d) => d.label === "screen")
   .reduce((a, b) => a + b.count, 0);
 
-// Cross-fold permutation importance for the 6 shipped features (mean across
-// all held-out group-CV folds, hist_gboost, final 224-image model).
+// Cross-fold permutation importance for the 7 shipped features (mean across
+// all held-out group-CV folds, random_forest, final 224-image model).
 export const featureImportance = [
-  { feature: "fft_radial_peakiness", importance: 0.0978, group: "FFT / moiré" },
-  { feature: "lbp_uniform_fraction", importance: 0.0760, group: "Texture (LBP)" },
-  { feature: "fft_peak_to_mean", importance: 0.0574, group: "FFT / moiré" },
-  { feature: "lbp_std", importance: 0.0552, group: "Texture (LBP)" },
-  { feature: "noise_kurtosis", importance: 0.0327, group: "Noise residual" },
-  { feature: "color_val_std", importance: 0.0129, group: "Color" },
+  { feature: "fft_radial_peakiness", importance: 0.0594, group: "FFT / moiré" },
+  { feature: "lbp_uniform_fraction", importance: 0.0585, group: "Texture (LBP)" },
+  { feature: "fft_peak_to_mean", importance: 0.0443, group: "FFT / moiré" },
+  { feature: "lbp_std", importance: 0.0385, group: "Texture (LBP)" },
+  { feature: "wavelet_hv_ratio", importance: 0.0338, group: "Wavelet" },
+  { feature: "color_val_std", importance: 0.0073, group: "Color" },
+  { feature: "noise_kurtosis", importance: 0.0060, group: "Noise residual" },
 ];
 
 // The iterative improvement story, condensed for the bar chart. Full detail
@@ -43,7 +44,8 @@ export const iterationHistory = [
   { stage: "19 features", groupCV: 76.1, randomSplit: 90.4 },
   { stage: "6 features, mean agg.", groupCV: 80.8, randomSplit: 92.3 },
   { stage: "+ moiré-weighted agg.", groupCV: 81.5, randomSplit: 94.2 },
-  { stage: "+ targeted data (shipped)", groupCV: 84.7, randomSplit: 96.4 },
+  { stage: "+ targeted data", groupCV: 84.7, randomSplit: 96.4 },
+  { stage: "+ wavelet H/V ratio (shipped)", groupCV: 86.1, randomSplit: 94.6 },
 ];
 
 // Every attempt, in order, kept or not. This is the full "how much effort"
@@ -110,16 +112,24 @@ export const journey = [
     step: 8,
     title: "Added targeted training data",
     metric: "84.7%",
-    status: "shipped" as const,
+    status: "improved" as const,
     detail:
       "2 phones, 3 screen types, +16 photos aimed at a diagnosed gap: screen recaptures with smooth-gradient content the model had never seen.",
+  },
+  {
+    step: 9,
+    title: "Wavelet H/V energy ratio",
+    metric: "86.1%",
+    status: "shipped" as const,
+    detail:
+      "Haar wavelet decomposition: horizontal vs vertical subband energy ratio. Screens have directional texture (scan lines, text rows) that natural scenes don't — consistent positive importance across every held-out fold.",
   },
 ];
 
 // Ideas that looked reasonable and were tested, then reverted because they
 // hurt the honest group-CV number -- plus the one that shipped.
 export const negativeExperiments = [
-  { name: "Shipped (moiré-weighted agg. + targeted data)", groupCV: 84.7, kept: true },
+  { name: "Shipped (wavelet H/V ratio, 7 features)", groupCV: 86.1, kept: true },
   { name: "Before targeted training data", groupCV: 81.5, kept: false },
   { name: "Flat mean aggregation", groupCV: 80.8, kept: false },
   { name: "Whole-image bezel-darkness feature", groupCV: 72.3, kept: false },
@@ -147,9 +157,9 @@ export const costPerImage = [
 ];
 
 export const classifierComparison = [
-  { classifier: "Logistic Regression", groupCV: 77.9, randomSplit: 85.7 },
-  { classifier: "Random Forest", groupCV: 81.5, randomSplit: 94.6 },
-  { classifier: "HistGradientBoosting (shipped)", groupCV: 84.7, randomSplit: 96.4 },
+  { classifier: "Logistic Regression", groupCV: 82.7, randomSplit: 92.9 },
+  { classifier: "Random Forest", groupCV: 86.3, randomSplit: 94.6 },
+  { classifier: "HistGradientBoosting (shipped)", groupCV: 86.1, randomSplit: 94.6 },
 ];
 
 export const effortStats = [
@@ -157,14 +167,15 @@ export const effortStats = [
   { value: 3, suffix: "", label: "screen types recaptured" },
   { value: 224, suffix: "", label: "training photos" },
   { value: 8, suffix: "", label: "device pairings, cross-validated" },
-  { value: 6, suffix: "", label: "features shipped, of 19 tried" },
-  { value: 8, suffix: "", label: "experiments run before shipping" },
+  { value: 7, suffix: "", label: "features shipped, of 26 tried" },
+  { value: 9, suffix: "", label: "experiments run before shipping" },
 ];
 
 export const techStack = [
   { name: "Python", role: "features.py, train.py, predict.py" },
   { name: "scikit-learn", role: "HistGradientBoosting classifier" },
   { name: "OpenCV / scikit-image", role: "FFT, LBP, patch extraction" },
+  { name: "PyWavelets", role: "Haar wavelet H/V ratio feature" },
   { name: "Flask", role: "backend API wrapping predict.py" },
   { name: "Next.js 16 + Tailwind", role: "this page" },
   { name: "Framer Motion", role: "animations" },

@@ -8,6 +8,7 @@ behind each one.
 
 import cv2
 import numpy as np
+import pywt
 from scipy.stats import kurtosis
 from skimage.feature import local_binary_pattern
 
@@ -16,23 +17,28 @@ MAX_PATCHES = 16
 BLANK_STD_THRESHOLD = 5.0  # skip near-uniform patches (walls, sky, blown highlights)
 
 ALL_FEATURE_NAMES = [
-    "fft_high_freq_ratio", "fft_peak_to_mean", "fft_radial_peakiness",
-    "lbp_entropy", "lbp_uniform_fraction", "lbp_hist_std", "lbp_std",
-    "noise_std", "noise_kurtosis", "noise_energy",
-    "color_sat_mean", "color_sat_std", "color_val_std", "color_rg_corr", "color_gb_corr",
-    "sharpness_lap_var",
-    "jpeg_blockiness",
-    "glare_highlight_frac", "glare_shadow_frac",
+    "fft_high_freq_ratio", "fft_peak_to_mean", "fft_radial_peakiness",        # 0-2
+    "lbp_entropy", "lbp_uniform_fraction", "lbp_hist_std", "lbp_std",          # 3-6
+    "noise_std", "noise_kurtosis", "noise_energy",                              # 7-9
+    "color_sat_mean", "color_sat_std", "color_val_std", "color_rg_corr", "color_gb_corr",  # 10-14
+    "sharpness_lap_var",                                                         # 15
+    "jpeg_blockiness",                                                           # 16
+    "glare_highlight_frac", "glare_shadow_frac",                                # 17-18
+    "wavelet_d1_mean", "wavelet_d1_std", "wavelet_d1_kurt",                    # 19-21
+    "wavelet_d2_mean", "wavelet_d2_std", "wavelet_d2_kurt",                    # 22-24
+    "wavelet_hv_ratio",                                                          # 25
 ]
 
 # Kept features = positive permutation importance in every held-out group-CV fold (see
 # docs/EXPLAINED.md). The other 11 were near-zero or flipped sign between folds -- noise
 # the classifier could fit per-device rather than genuine recapture signal.
+# Wavelet features added for evaluation -- will prune after seeing per-fold importance.
 FEATURE_NAMES = [
     "fft_peak_to_mean", "fft_radial_peakiness",
     "lbp_uniform_fraction", "lbp_std",
     "noise_kurtosis",
     "color_val_std",
+    "wavelet_hv_ratio",
 ]
 SELECTED_INDICES = [ALL_FEATURE_NAMES.index(name) for name in FEATURE_NAMES]
 
@@ -172,21 +178,44 @@ def glare_features(bgr):
     return np.array([highlight_frac, shadow_frac])
 
 
-def extract_patch_features(patch, gray=None):
-    """Concatenate the feature groups that feed FEATURE_NAMES, then select that subset.
+def wavelet_features(gray):
+    """Multi-scale Haar wavelet subband statistics.
 
-    sharpness_features / jpeg_block_features / glare_features are kept above as
-    documented, standalone functions (see docs/EXPLAINED.md) but are skipped here --
-    cross-fold permutation importance showed none of their outputs survive pruning,
-    so computing them on every patch would just be wasted latency.
+    Moiré creates a periodic beat frequency that shows up as elevated energy in the
+    diagonal detail subband (cD) at the level whose frequency matches the beat.
+    Level 1 catches high-frequency moiré (fine pixel grid), level 2 catches
+    lower-frequency moiré (coarser grid or photographed from farther away).
+    H/V energy ratio captures anisotropy -- screen content is often directional
+    (horizontal scan lines, text rows) in a way natural scenes aren't.
     """
+    g = gray.astype(np.float64)
+    cA1, (cH1, cV1, cD1) = pywt.dwt2(g, "haar")
+    cA2, (cH2, cV2, cD2) = pywt.dwt2(cA1, "haar")
+
+    d1 = np.abs(cD1).ravel()
+    d2 = np.abs(cD2).ravel()
+    hv_ratio = np.abs(cH1).mean() / (np.abs(cV1).mean() + 1e-8)
+
+    return np.array([
+        d1.mean(), d1.std(), kurtosis(d1, fisher=True),   # 19-21
+        d2.mean(), d2.std(), kurtosis(d2, fisher=True),   # 22-24
+        hv_ratio,                                          # 25
+    ])
+
+
+def extract_patch_features(patch, gray=None):
+    """Concatenate all feature groups (indices must stay aligned with ALL_FEATURE_NAMES), then select FEATURE_NAMES subset."""
     if gray is None:
         gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
     feats = np.concatenate([
-        fft_features(gray),
-        lbp_features(gray),
-        noise_residual_features(gray),
-        color_features(patch),
+        fft_features(gray),              # 0-2
+        lbp_features(gray),              # 3-6
+        noise_residual_features(gray),   # 7-9
+        color_features(patch),           # 10-14
+        sharpness_features(gray),        # 15
+        jpeg_block_features(gray),       # 16
+        glare_features(patch),           # 17-18
+        wavelet_features(gray),          # 19-25
     ])
     feats = np.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=0.0)
     return feats[SELECTED_INDICES]

@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 const steps = [
   { title: "Input photo", detail: ".jpg, full resolution" },
   { title: "Patch grid", detail: "128×128 cells, ~16/image" },
-  { title: "6 features / patch", detail: "FFT · LBP · noise · color" },
+  { title: "7 features / patch", detail: "FFT · LBP · noise · color · wavelet" },
   { title: "HistGradientBoosting", detail: "P(screen) per patch" },
   { title: "Weighted aggregate", detail: "score in [0, 1]" },
 ];

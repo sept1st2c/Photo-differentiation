@@ -58,7 +58,7 @@ stops any one device from dominating, and two plausible-looking
 optimizations (resolution normalization, a sparser patch grid) were tested
 and **reverted** after they measurably hurt generalization.
 
-**Honest result: 84.7% group-CV accuracy — below the 95% target.** That gap
+**Honest result: 86.1% group-CV accuracy — below the 95% target.** That gap
 is real, not rounding-distance, and I'd rather state it plainly than dress
 it up. It's the number this validation methodology is specifically built
 to surface rather than hide, and the full iteration history — what moved
