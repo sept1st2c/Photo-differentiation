@@ -8,6 +8,7 @@ const groupColor: Record<string, string> = {
   "Texture (LBP)": "#38bdf8",
   "Noise residual": "#fbbf24",
   Color: "#f472b6",
+  Wavelet: "#a78bfa",
 };
 
 export default function FeatureImportanceChart() {

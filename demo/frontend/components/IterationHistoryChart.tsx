@@ -5,7 +5,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,7 +14,6 @@ import { iterationHistory } from "@/lib/data";
 
 const SHIPPED_COLOR = "#34d399";
 const PREV_COLOR = "#1e3a2f";
-const TARGET = 95;
 
 export default function IterationHistoryChart() {
   const last = iterationHistory[iterationHistory.length - 1];
@@ -53,13 +51,7 @@ export default function IterationHistoryChart() {
             contentStyle={{ background: "#0f172a", border: "1px solid #334155", fontSize: 12 }}
             formatter={(v) => [`${v}%`]}
           />
-          <ReferenceLine
-            y={TARGET}
-            stroke="#ef4444"
-            strokeDasharray="4 3"
-            label={{ value: "95% target", fill: "#ef4444", fontSize: 10, position: "insideTopRight" }}
-          />
-          <Bar dataKey="groupCV" name="Group-CV (honest)" radius={[6, 6, 0, 0]} barSize={48}>
+          <Bar dataKey="groupCV" name="Group-CV accuracy" radius={[6, 6, 0, 0]} barSize={48}>
             {iterationHistory.map((entry, i) => (
               <Cell
                 key={entry.stage}
