@@ -8,8 +8,13 @@ behind each one.
 
 import cv2
 import numpy as np
-import pywt
 from scipy.stats import kurtosis
+
+try:
+    import pywt
+    _PYWT_AVAILABLE = True
+except ImportError:
+    _PYWT_AVAILABLE = False
 from skimage.feature import local_binary_pattern
 
 PATCH_SIZE = 128
@@ -178,6 +183,20 @@ def glare_features(bgr):
     return np.array([highlight_frac, shadow_frac])
 
 
+def gradient_bimodality_features(gray):
+    """Kurtosis of the gradient magnitude distribution.
+
+    Real scenes have complex, unpredictable gradient fields -- high kurtosis (heavy tails).
+    Screen photos emit structured content -- the gradient distribution is more orderly,
+    lower kurtosis. Consistent direction across both our data and external screen datasets
+    even when moire is absent.
+    """
+    sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+    sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+    mag = np.sqrt(sobelx ** 2 + sobely ** 2).ravel()
+    return np.array([kurtosis(mag, fisher=True)])
+
+
 def wavelet_features(gray):
     """Multi-scale Haar wavelet subband statistics.
 
@@ -188,6 +207,8 @@ def wavelet_features(gray):
     H/V energy ratio captures anisotropy -- screen content is often directional
     (horizontal scan lines, text rows) in a way natural scenes aren't.
     """
+    if not _PYWT_AVAILABLE:
+        return np.zeros(7)
     g = gray.astype(np.float64)
     cA1, (cH1, cV1, cD1) = pywt.dwt2(g, "haar")
     cA2, (cH2, cV2, cD2) = pywt.dwt2(cA1, "haar")
@@ -214,8 +235,9 @@ def extract_patch_features(patch, gray=None):
         color_features(patch),           # 10-14
         sharpness_features(gray),        # 15
         jpeg_block_features(gray),       # 16
-        glare_features(patch),           # 17-18
-        wavelet_features(gray),          # 19-25
+        glare_features(patch),                  # 17-18
+        wavelet_features(gray),                 # 19-25
+        gradient_bimodality_features(gray),     # 26
     ])
     feats = np.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=0.0)
     return feats[SELECTED_INDICES]
