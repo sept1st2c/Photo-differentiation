@@ -7,7 +7,7 @@ import CameraDemo from "@/components/CameraDemo";
 
 const tabs = [
   { id: "batch", label: "Upload / batch test" },
-  { id: "camera", label: "Live camera", badge: "patched" },
+  { id: "camera", label: "Live camera", badge: "in progress" },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -78,10 +78,11 @@ export default function TryItYourself() {
               phone screen showing a photo.
             </p>
             <p className="mb-5 max-w-2xl text-xs text-amber-300/90">
-              Recently patched: webcams/browsers often default to a low capture resolution, and
-              the moiré signal this model relies on doesn&apos;t survive downsizing — same
-              finding as the resolution experiment in the journey below. Now requests the highest
-              resolution the camera offers. Best tested on a phone browser, not a laptop webcam.
+              Still being debugged: an initial fix requested higher camera resolution (low-res
+              capture destroys the moiré signal this model relies on — same finding as the
+              resolution experiment in the journey below), but real-device testing is still
+              turning up errors. Use the batch uploader above for a reliable result in the
+              meantime.
             </p>
             <CameraDemo />
           </motion.div>
