@@ -19,7 +19,7 @@ scikit-learn, ~376KB model file.
 
 ## Why this approach
 
-With ~200 self-collected photos across 5-6 device pairings, a CNN would
+With 224 self-collected photos across 8 device pairings, a CNN would
 likely memorize *device* fingerprints (this iPhone's sensor noise, this
 laptop's moiré frequency) rather than learn "recapture" in general. A
 small handcrafted feature vector can't memorize pixels — only the physical
@@ -58,17 +58,23 @@ stops any one device from dominating, and two plausible-looking
 optimizations (resolution normalization, a sparser patch grid) were tested
 and **reverted** after they measurably hurt generalization.
 
+**Honest result: 84.7% group-CV accuracy — below the 95% target.** That gap
+is real, not rounding-distance, and I'd rather state it plainly than dress
+it up. It's the number this validation methodology is specifically built
+to surface rather than hide, and the full iteration history — what moved
+the number and what didn't — is in `docs/EXPLAINED.md`.
+
 ## Latency
 
 ```
-JPEG decode (12MP)      ████████████████████████████████████   ~88ms  (49%)
-Feature extraction      ████████████████████████████████       ~78ms  (44%)
+JPEG decode (12MP)      ████████████████████████████████████   ~83ms  (49%)
+Feature extraction      ████████████████████████████████       ~75ms  (44%)
 Classification + score  ████                                    ~12ms  (7%)
                                                                 ──────
-                                                          total ~178ms  (median)
+                                                          total ~170ms  (median)
 ```
 
-**~178ms median / ~220ms p95** (`benchmark.py`, 50 images, laptop CPU,
+**~170ms median / ~217ms p95** (`benchmark.py`, 50 images, laptop CPU,
 single-threaded, model warm). JPEG decode dominates; decoding smaller would
 speed this up but measurably hurts the moiré signal, so full resolution is
 kept — accuracy over a faster, worse number.
