@@ -11,4 +11,23 @@ html {
 
 body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+  background-position: center top;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #000;
+}
+::-webkit-scrollbar-thumb {
+  background: #262626;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #34d399;
 }

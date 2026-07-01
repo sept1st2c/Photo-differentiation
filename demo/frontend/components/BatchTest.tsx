@@ -3,6 +3,12 @@
 import { useCallback, useRef, useState } from "react";
 import { BACKEND_URL } from "@/lib/data";
 
+// The Render free-tier backend runs one request at a time on shared CPU --
+// an unbounded batch (someone dropping in a folder of 500 photos) would
+// queue up minutes of sequential requests and risks tipping it over. Cap it
+// client-side and score the first N rather than silently hanging or crashing.
+const MAX_BATCH_SIZE = 25;
+
 type Result = {
   name: string;
   score: number | null;
@@ -24,11 +30,19 @@ export default function BatchTest() {
   const [results, setResults] = useState<Result[]>([]);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [capped, setCapped] = useState<number | null>(null);
   const cancelRef = useRef(false);
 
   const runBatch = useCallback(async (files: FileList | File[]) => {
-    const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    let imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (imageFiles.length === 0) return;
+
+    if (imageFiles.length > MAX_BATCH_SIZE) {
+      setCapped(imageFiles.length);
+      imageFiles = imageFiles.slice(0, MAX_BATCH_SIZE);
+    } else {
+      setCapped(null);
+    }
 
     cancelRef.current = false;
     setRunning(true);
@@ -111,6 +125,13 @@ export default function BatchTest() {
           )}
         </div>
       </div>
+
+      {capped !== null && (
+        <p className="mt-3 text-xs text-amber-300">
+          You selected {capped} images — capped at the first {MAX_BATCH_SIZE} to keep the free-tier
+          backend responsive. Run it again for the rest.
+        </p>
+      )}
 
       {progress.total > 0 && (
         <div className="mt-4">

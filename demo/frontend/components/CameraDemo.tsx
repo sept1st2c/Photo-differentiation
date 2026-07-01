@@ -9,6 +9,7 @@ import {
   Tooltip,
 } from "recharts";
 import { BACKEND_URL } from "@/lib/data";
+import Gauge from "@/components/Gauge";
 
 const CAPTURE_INTERVAL_MS = 1200;
 const HISTORY_LENGTH = 24;
@@ -140,12 +141,13 @@ export default function CameraDemo() {
 
       <div className="flex flex-col justify-between gap-4">
         <div
-          className={`flex flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] py-8 ring-1 ring-inset transition ${
+          className={`flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/10 bg-white/[0.03] py-6 ring-1 ring-inset transition ${
             v ? v.ring : "ring-white/5"
           }`}
         >
           <span className="text-xs uppercase tracking-widest text-slate-400">Live score (0 = real, 1 = screen)</span>
-          <span className={`text-5xl font-bold tabular-nums ${v ? v.color : "text-slate-500"}`}>
+          <Gauge score={score} />
+          <span className={`-mt-2 text-4xl font-bold tabular-nums ${v ? v.color : "text-slate-500"}`}>
             {score !== null ? score.toFixed(3) : "—"}
           </span>
           {v && <span className={`text-sm font-semibold tracking-wide ${v.color}`}>{v.label}</span>}
