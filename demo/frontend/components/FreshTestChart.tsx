@@ -26,9 +26,9 @@ export default function FreshTestChart() {
       <Bar correct={f.realPhotosCorrect} total={f.realPhotosTotal} label="Fresh real photos (stock, never trained on)" color="#34d399" />
       <Bar correct={f.screenPhotosCorrect} total={f.screenPhotosTotal} label="Fresh screen photos (new phone captures)" color="#fb7185" />
       <p className="text-xs text-slate-500">
-        {correct}/{total} combined on data collected after training was finalized. Small sample —
-        a proxy check before submission, not a substitute for validation on SalesCode&apos;s own
-        held-out photos.
+        {`${correct}/${total} combined`}{" "}
+        on data collected after training was finalized. Small sample — a proxy check before
+        submission, not a substitute for validation on SalesCode&apos;s own held-out photos.
       </p>
     </div>
   );

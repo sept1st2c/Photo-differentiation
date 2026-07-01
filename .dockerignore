@@ -1,0 +1,7 @@
+data/
+test_images/
+demo/frontend/node_modules/
+demo/frontend/.next/
+__pycache__/
+*.pyc
+.git/

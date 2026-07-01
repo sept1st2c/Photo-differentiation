@@ -11,10 +11,13 @@ Usage:
 Serves POST /predict (multipart image -> {"score": float}) on :5000.
 """
 
+import os
 import sys
 import tempfile
 from pathlib import Path
 
+import cv2
+import numpy as np
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -25,8 +28,30 @@ from predict import predict  # noqa: E402
 app = Flask(__name__)
 CORS(app)
 
-_warmup_image = PROJECT_ROOT / "data" / "real" / "photos from iphone" / "IMG_0364.JPG.jpeg"
-predict(str(_warmup_image))  # warm the model once at startup, not on the first live frame
+
+def _warm_up():
+    """Run one prediction at startup, not on the first live frame.
+
+    Uses a synthetic image rather than a training photo so the backend has
+    no dependency on data/ being present -- deployed containers ship the
+    model, not the training set.
+    """
+    noise = np.random.default_rng(0).integers(0, 256, (512, 512, 3), dtype=np.uint8)
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+        cv2.imwrite(tmp.name, noise)
+        tmp_path = tmp.name
+    try:
+        predict(tmp_path)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+
+_warm_up()
+
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
 
 
 @app.route("/predict", methods=["POST"])
@@ -50,4 +75,4 @@ def predict_route():
 
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)

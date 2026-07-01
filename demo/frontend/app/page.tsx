@@ -1,3 +1,4 @@
+import BatchTest from "@/components/BatchTest";
 import CameraDemo from "@/components/CameraDemo";
 import ClassifierComparisonChart from "@/components/ClassifierComparisonChart";
 import CostChart from "@/components/CostChart";
@@ -38,6 +39,18 @@ export default function Home() {
           description="Runs the exact predict.py pipeline on live frames. Point it at something real, then at a laptop or phone screen showing a photo."
         />
         <CameraDemo />
+      </section>
+
+      {/* 1b. Batch test — for throwing a folder of held-out photos at it */}
+      <section id="batch" className="mb-24">
+        <SectionHeading
+          eyebrow="Batch"
+          title="Test it against your own photos"
+          description="Drop in as many images as you like — each one is scored by the same pipeline, one request at a time, with a running scoreboard."
+        />
+        <Card>
+          <BatchTest />
+        </Card>
       </section>
 
       {/* 2. Required numbers: latency + cost */}
